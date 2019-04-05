@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// carSale is for mapping the api json into a struct
 type carSale struct {
 	ID            int
 	ImportCountry string `json:"import_country"`
@@ -15,10 +16,11 @@ type carSale struct {
 }
 
 type countryMap struct {
-	Cars       map[string]int // Maps make and model to num occurences
-	Makes      map[string]int // Maps makes to num occurences
-	Sellers    map[string]int // Maps sellers to num occurences
+	Cars       map[string]int // Maps make and model to num occurrences
+	Makes      map[string]int // Maps makes to num occurrences
+	Sellers    map[string]int // Maps sellers to num occurrences
 	TotalSales *int           // Total of things sold
+	QuantitySold *int // Number of cars sold
 }
 
 type countryMappings struct {
@@ -44,13 +46,11 @@ func main() {
 	// if err != nil {
 	// 	fmt.Println(err)
 	// }
-	salesInput := []byte(`[{"id":1,"import_country":"Brazil","model":"I","make":"Infiniti","sold_by":"Ruby Brimblecombe","sale_price":19497},{"id":2,"import_country":"Mongolia","model":"370Z","make":"Nissan","sold_by":"Richard Lowndesbrough","sale_price":17489}, {"id":3,"import_country":"Brazil","model":"250","make":"Infiniti","sold_by":"Ruby Brimblecombe","sale_price":19497}]`)
+	salesInput := []byte(`[{"id":1,"import_country":"Brazil","model":"I","make":"Infiniti","sold_by":"Ruby Brimblecombe","sale_price":19497},{"id":2,"import_country":"Mongolia","model":"370Z","make":"Nissan","sold_by":"Richard Lowndesbrough","sale_price":17489}, {"id":3,"import_country":"Brazil","model":"I","make":"Infiniti","sold_by":"Ruby Brimblecombe","sale_price":19497}]`)
 	var sales []carSale
-	json.Unmarshal(salesInput, &sales)
-	fmt.Println(sales[0].Price)
+	_ = json.Unmarshal(salesInput, &sales)
 	m := mapCountries(sales)
-	fmt.Printf("%+v\n", m)
-	fmt.Println(*m.Countries["Brazil"].TotalSales)
+	fmt.Println(m.bestSellingCar())
 }
 
 // mapCountries makes the country mappings data structure
@@ -71,8 +71,9 @@ func mapCountries(sales []carSale) countryMappings {
 			tempCMap.Makes = make(map[string]int)
 			tempCMap.Sellers = make(map[string]int)
 			// Create int and pass reference to it to my map
-			var total int
+			var total, quantity int
 			tempCMap.TotalSales = &total
+			tempCMap.QuantitySold = &quantity
 			// Map import country of sale to new country map and update to reflect this sale
 			mapOfCountries.Countries[sale.ImportCountry] = tempCMap
 			updateCountryMap(sale, tempCMap)
@@ -84,6 +85,7 @@ func mapCountries(sales []carSale) countryMappings {
 // Updates the paramters of the sale country's countryMap
 func updateCountryMap(sale carSale, cMap countryMap) {
 	*cMap.TotalSales = sale.Price + *cMap.TotalSales
+	*cMap.QuantitySold++
 	_, ok := cMap.Cars[sale.Make+" "+sale.Model]
 	if !ok {
 		cMap.Cars[sale.Make+" "+sale.Model] = 1
@@ -102,6 +104,38 @@ func updateCountryMap(sale carSale, cMap countryMap) {
 	} else {
 		cMap.Sellers[sale.SoldBy]++
 	}
+}
+
+// bestSellingCar returns the best selling car in a country
+func (cm countryMap) bestSellingCar() (string, int) {
+	var (
+		max int
+		car string
+	)
+	for key, value := range cm.Cars {
+		if value > max {
+			max = value
+			car = key
+		}
+	}
+	return car, max
+}
+
+// bestSelling car returns the best selling car in the entire data set along with its country
+func (cms countryMappings) bestSellingCar() (string, string, int){
+	var (
+		max int
+		car string
+		region string
+	)
+	for key, value := range cms.Countries {
+		if maxCar, numSold := value.bestSellingCar(); numSold > max {
+			car = maxCar
+			max = numSold
+			region = key
+		}
+	}
+	return region, car, max
 }
 
 // // Return list of sorted
